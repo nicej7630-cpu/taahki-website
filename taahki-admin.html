@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Taahki Health Center — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1b2420; --paper:#faf6ec; --teal:#123b3d; --teal-deep:#0b2829;
+    --sand:#e7dac3; --sand-line:#d8c6a5; --ochre:#c08a28; --ochre-deep:#9c6e1e; --white:#fffdf9;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; font-family:'Inter',sans-serif; background:var(--paper); color:var(--ink); padding:32px 20px 80px;}
+  h1{font-family:'Zilla Slab',serif; color:var(--teal-deep); font-size:26px; margin:0 0 6px;}
+  p.sub{color:#5a6355; font-size:14px; margin:0 0 28px;}
+  .wrap{max-width:680px; margin:0 auto;}
+  .card{background:var(--white); border:1px solid var(--sand-line); border-radius:6px; padding:20px; margin-bottom:16px;}
+  .field-row{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:10px;}
+  .field{display:flex; flex-direction:column; gap:5px;}
+  label{font-size:12.5px; color:#3c463b; font-weight:500;}
+  input, textarea{
+    border:1px solid var(--sand-line); border-radius:3px; padding:10px 12px;
+    font-family:'Inter',sans-serif; font-size:14px; background:var(--paper); color:var(--ink); width:100%;
+  }
+  textarea{resize:vertical; min-height:50px;}
+  .card-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:8px;}
+  .btn-remove{background:none; border:1px solid #b5544a; color:#b5544a; padding:8px 14px; border-radius:3px; font-size:13px; cursor:pointer;}
+  .btn-remove:hover{background:#f6e5e3;}
+  .btn-add{
+    width:100%; background:var(--sand); border:1px dashed var(--sand-line); color:var(--teal-deep);
+    padding:14px; border-radius:6px; font-size:14px; font-weight:500; cursor:pointer; margin-bottom:28px;
+  }
+  .btn-add:hover{background:#ded0b3;}
+  .btn-save{
+    width:100%; background:var(--teal); color:var(--white); border:none; padding:15px;
+    border-radius:4px; font-size:15px; font-weight:500; cursor:pointer;
+  }
+  .btn-save:hover{background:var(--teal-deep);}
+  .status{
+    text-align:center; font-size:13.5px; margin-top:14px; min-height:18px; color:var(--ochre-deep);
+  }
+  .note{background:var(--sand); border:1px solid var(--sand-line); border-radius:6px; padding:14px 16px; font-size:13.5px; color:#3c463b; margin-bottom:28px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Manage Doctors</h1>
+  <p class="sub">Taahki Health Center — جمعية اسرة التآخي. Changes here update the "Meet the team" section on the live site for everyone.</p>
+
+  <div class="note">This list is stored as shared data — anyone with this admin page link can view or edit it, so keep the link private.</div>
+
+  <div id="doctorList"></div>
+  <button class="btn-add" id="addBtn">+ Add another doctor</button>
+  <button class="btn-save" id="saveBtn">Save changes</button>
+  <div class="status" id="status"></div>
+</div>
+
+<script>
+  const DEFAULT_DOCTORS = [
+    { name: "Dr. Rania Abou Khalil", role: "Chief of Cardiology", note: "18 years in interventional cardiology." },
+    { name: "Dr. Fadi Nassar", role: "Head of Pediatrics", note: "Focused on childhood chronic illness care." },
+    { name: "Dr. Maya Haddad", role: "Orthopedic Surgeon", note: "Minimally invasive joint replacement." },
+    { name: "Dr. Karim Sfeir", role: "Neurologist", note: "Leads the stroke response unit." }
+  ];
+  const STORAGE_KEY = 'taahki-doctors-list';
+  const listEl = document.getElementById('doctorList');
+  const statusEl = document.getElementById('status');
+
+  function cardHTML(doc, index){
+    return `
+      <div class="card" data-index="${index}">
+        <div class="field-row">
+          <div class="field"><label>Full name</label><input class="f-name" value="${doc.name || ''}" placeholder="Dr. First Last"></div>
+          <div class="field"><label>Role / specialty</label><input class="f-role" value="${doc.role || ''}" placeholder="e.g. Head of Pediatrics"></div>
+        </div>
+        <div class="field"><label>Short note</label><textarea class="f-note" placeholder="One line about their focus">${doc.note || ''}</textarea></div>
+        <div class="card-actions"><button class="btn-remove" onclick="removeCard(${index})">Remove</button></div>
+      </div>`;
+  }
+
+  let doctors = [];
+
+  function render(){
+    listEl.innerHTML = doctors.map((d,i) => cardHTML(d,i)).join('');
+  }
+
+  function collect(){
+    const cards = listEl.querySelectorAll('.card');
+    return Array.from(cards).map(card => ({
+      name: card.querySelector('.f-name').value.trim(),
+      role: card.querySelector('.f-role').value.trim(),
+      note: card.querySelector('.f-note').value.trim()
+    })).filter(d => d.name);
+  }
+
+  window.removeCard = function(index){
+    doctors = collect();
+    doctors.splice(index, 1);
+    render();
+  };
+
+  document.getElementById('addBtn').addEventListener('click', () => {
+    doctors = collect();
+    doctors.push({ name: '', role: '', note: '' });
+    render();
+  });
+
+  document.getElementById('saveBtn').addEventListener('click', async () => {
+    doctors = collect();
+    statusEl.textContent = 'Saving…';
+    try{
+      const result = await window.storage.set(STORAGE_KEY, JSON.stringify(doctors), true);
+      statusEl.textContent = result ? 'Saved. The live site now shows this list.' : 'Something went wrong — please try again.';
+    }catch(err){
+      statusEl.textContent = 'Could not save right now — please try again.';
+    }
+  });
+
+  async function load(){
+    try{
+      const result = await window.storage.get(STORAGE_KEY, true);
+      doctors = result && result.value ? JSON.parse(result.value) : DEFAULT_DOCTORS.slice();
+    }catch(err){
+      doctors = DEFAULT_DOCTORS.slice();
+    }
+    render();
+  }
+  load();
+</script>
+</body>
+</html>
